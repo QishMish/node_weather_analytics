@@ -8,7 +8,7 @@ export const getAnalytics = () => {
     .then((result) => {
       const data = result.rows.map((row) => row );
 
-      console.log('data::::::::', data);
+      console.log('data::::::::', data.length);
       io.emit('data', data);
     })
     .catch((error) => {
