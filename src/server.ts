@@ -1,34 +1,27 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import { cassandraClient } from './config';
+import cron from 'node-cron';
+import { getAnalytics } from './jobs/analytics';
 
 const app = express();
 const server = http.createServer(app);
 
 export const io = new Server(server);
 
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+});
+
 app.get('/health', (req, res) => {
   res.sendStatus(200);
 });
 
-
 io.on('connection', (socket) => {
   console.log('A client connected');
-
-  cassandraClient
-    .execute('SELECT * FROM weather_data.temperatures', [], { prepare: true })
-    .then((result) => {
-      const data = result.rows.map((row) => row.get('column_name'));
-
-      console.log("data:::::::::::", data);
-
-      socket.emit('data', data);
-    })
-    .catch((error) => {
-      console.error('Error retrieving data from Cassandra:', error);
-    });
-
+ 
+  cron.schedule('*/3 * * * * *', () => getAnalytics(socket));
+ 
   socket.on('disconnect', () => {
     console.log('A client disconnected');
   });
