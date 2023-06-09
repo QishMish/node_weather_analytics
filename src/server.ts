@@ -17,7 +17,7 @@ io.on('connection', (socket) => {
   console.log('A client connected');
 
   cassandraClient
-    .execute('SELECT * FROM weather_data.temperature_data', [], { prepare: true })
+    .execute('SELECT * FROM weather_data.temperatures', [], { prepare: true })
     .then((result) => {
       const data = result.rows.map((row) => row.get('column_name'));
 
