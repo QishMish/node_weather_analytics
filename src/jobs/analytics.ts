@@ -36,12 +36,13 @@ async function getDailyTemperatureStats(day = 0) {
 
     const minTimestamp = startOfDayUTC.getTime();
 
-    const stations = ['ST00001', 'ST00002'];
+    const stationSet = await getStations();
+
     const sensors = ['sensor0', 'sensor1', 'sensor2', 'sensor3'];
     const temperatureStats: any = {};
     const resultByPeriods: any = {};
 
-    for (const station of stations) {
+    for (const station of Array.from<string>(stationSet.values())) {
       temperatureStats[station] = {};
 
       for (const sensor of sensors) {
@@ -75,13 +76,66 @@ async function getDailyTemperatureStats(day = 0) {
   }
 }
 
+async function getStationErrors() {
+  try {
+    const stationSet = await getStations();
+    const stations = Array.from<string>(stationSet);
+
+    const output: any = {};
+    for (const station of stations) {
+      console.log(station);
+      const query = "SELECT COUNT(status) AS error FROM temperatures WHERE station_id = ? AND status = 'inValid' ALLOW FILTERING";
+      const params = [station];
+
+      const result = await cassandraClient.execute(query, params, { prepare: true });
+      const count = result.rows[0].error;
+
+      output[station] = count.low;
+    }
+
+    return output;
+  } catch (error) {
+    console.error('Error performing analytics:', error);
+    throw error;
+  }
+}
+
+async function getStationDailyErrors() {
+  try {
+  } catch (error) {
+    console.error('Error performing analytics:', error);
+    throw error;
+  }
+}
+
+async function getStations() {
+  const stationsQuery = 'SELECT station_id FROM temperatures';
+
+  const stationsResult = await cassandraClient.execute(stationsQuery);
+
+  const stationSet = stationsResult.rows.reduce((acc: any, curr: any) => {
+    if (!acc.has(curr.station_id)) {
+      acc.add(curr.station_id);
+      return acc;
+    }
+    return acc;
+  }, new Set<string>([]));
+  return stationSet;
+}
+
 export const getAnalytics = async () => {
-  const [x, y, z] = await Promise.all([getLast24HourAverage(), getDailyTemperatureStats(), getDailyTemperatureStats(7)]);
+  const [x, y, z, e] = await Promise.all([
+    getLast24HourAverage(),
+    getDailyTemperatureStats(),
+    getDailyTemperatureStats(7),
+    getStationErrors()
+  ]);
 
   const data = {
     getLast24HourAverage: x,
     getTemperatureStatsForOneDay: y,
-    getTemperatureStatsForSevenDay: z
+    getTemperatureStatsForSevenDay: z,
+    errors: e
   };
 
   io.emit('data', data);
