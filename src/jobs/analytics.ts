@@ -75,7 +75,7 @@ async function getDailyTemperatureStats(day = 0) {
   }
 }
 
-export const getAnalytics = async (socket: any) => {
+export const getAnalytics = async () => {
   const [x, y, z] = await Promise.all([getLast24HourAverage(), getDailyTemperatureStats(), getDailyTemperatureStats(7)]);
 
   const data = {
@@ -84,7 +84,7 @@ export const getAnalytics = async (socket: any) => {
     getTemperatureStatsForSevenDay: z
   };
 
-  socket.emit('data', data);
+  io.emit('data', data);
   //   .execute('SELECT * FROM temperatures', [], { prepare: true })
   //   .then((result) => {
   //     const data = result.rows.map((row) => row);

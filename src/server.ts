@@ -1,8 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import cron from 'node-cron';
-import { getAnalytics } from './jobs/analytics';
+import './jobs/index';
 
 const app = express();
 const server = http.createServer(app);
@@ -19,9 +18,7 @@ app.get('/health', (req, res) => {
 
 io.on('connection', (socket) => {
   console.log('A client connected');
- 
-  cron.schedule('*/3 * * * * *', () => getAnalytics(socket));
- 
+
   socket.on('disconnect', () => {
     console.log('A client disconnected');
   });
