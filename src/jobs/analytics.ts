@@ -1,6 +1,20 @@
-import { Socket } from 'socket.io';
 import { cassandraClient } from '../config';
 import { io } from '../server';
+
+async function getStations() {
+  const stationsQuery = 'SELECT station_id FROM temperatures';
+
+  const stationsResult = await cassandraClient.execute(stationsQuery);
+
+  const stationSet = stationsResult.rows.reduce((acc: any, curr: any) => {
+    if (!acc.has(curr.station_id)) {
+      acc.add(curr.station_id);
+      return acc;
+    }
+    return acc;
+  }, new Set<string>([]));
+  return stationSet;
+}
 
 async function getLast24HourAverage() {
   try {
@@ -8,6 +22,7 @@ async function getLast24HourAverage() {
     const last24HoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).getDate();
 
     const output: any = {};
+
     for (const sensor of sensors) {
       const query = `SELECT AVG(${sensor}) AS avg_${sensor} FROM temperatures WHERE ts > ? ALLOW FILTERING`;
       const params = [last24HoursAgo];
@@ -15,8 +30,8 @@ async function getLast24HourAverage() {
       const result = await cassandraClient.execute(query, params, { prepare: true });
       const average = result.rows[0];
 
-      // console.log(`Last 24-hour average for ${sensor}:`);
-      // console.log(average);
+      console.log(`Last 24-hour average for ${sensor}:`);
+      console.log(average);
       output[sensor] = average;
     }
 
@@ -68,9 +83,9 @@ async function getDailyTemperatureStats(day = 0) {
         resultByPeriods[day] = temperatureStats;
       }
     }
+    console.log(`Daily temperature stats for each station (Date: ${currentDate}):`);
+    console.log(`last ${day === 0 ? '24h' : '7d'}`, resultByPeriods);
     return resultByPeriods;
-    // console.log(`Daily temperature stats for each station (Date: ${currentDate}):`);
-    // console.log(`last ${day === 0 ? '24h' : '7d'}`, resultByPeriods);
   } catch (error) {
     console.error('Error performing temperature analysis:', error);
   }
@@ -108,21 +123,6 @@ async function getStationDailyErrors() {
   }
 }
 
-async function getStations() {
-  const stationsQuery = 'SELECT station_id FROM temperatures';
-
-  const stationsResult = await cassandraClient.execute(stationsQuery);
-
-  const stationSet = stationsResult.rows.reduce((acc: any, curr: any) => {
-    if (!acc.has(curr.station_id)) {
-      acc.add(curr.station_id);
-      return acc;
-    }
-    return acc;
-  }, new Set<string>([]));
-  return stationSet;
-}
-
 export const getAnalytics = async () => {
   const [x, y, z, e] = await Promise.all([
     getLast24HourAverage(),
@@ -139,13 +139,15 @@ export const getAnalytics = async () => {
   };
 
   io.emit('data', data);
-  //   .execute('SELECT * FROM temperatures', [], { prepare: true })
-  //   .then((result) => {
-  //     const data = result.rows.map((row) => row);
-  //     console.log(data);
-  //     io.emit('data', data);
-  //   })
-  //   .catch((error) => {
-  //     console.error('Error retrieving data from Cassandra:', error);
-  //   });
+
+  cassandraClient
+    .execute('SELECT * FROM temperatures', [], { prepare: true })
+    .then((result) => {
+      const data = result.rows.map((row) => row);
+      console.log(data);
+      // io.emit('data', data);
+    })
+    .catch((error) => {
+      console.error('Error retrieving data from Cassandra:', error);
+    });
 };
